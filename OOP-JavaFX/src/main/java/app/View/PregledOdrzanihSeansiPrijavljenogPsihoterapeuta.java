@@ -1,81 +1,135 @@
 package app.View;
 
+import app.App;
+import app.Model.SeansaPrikaz;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableView;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
-public class PregledOdrzanihSeansiPrijavljenogPsihoterapeuta extends  HBox{
-    private ComboBox<String> cbPsihoterapeuti;
-    private Label lbNaslov;
-    private Label lbIzborPsihoterapeuta;
-    private Button btnIzaberi;
-    private ObservableList<String> olSenase;
-    private TableView twSeanse;
-    private VBox vb;
-    private VBox vb2;
-    private HBox hb;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
-    public PregledOdrzanihSeansiPrijavljenogPsihoterapeuta(){
+public class PregledOdrzanihSeansiPrijavljenogPsihoterapeuta extends  VBox{
+    private String jmbg;
+    private Label lbNaslov;
+
+    private Button btnBack;
+    private ObservableList<SeansaPrikaz> olSenase;
+    private TableView twSeanse;
+
+
+    public PregledOdrzanihSeansiPrijavljenogPsihoterapeuta(String jmbg){
+        this.jmbg = jmbg;
         napraviElemente();
         dodajElemente();
         dodajAkcije();
+        ucitajSeanse();
     }
 
     private void napraviElemente()
     {
-        lbIzborPsihoterapeuta = new Label("Izaberite psihoterapeuta");
+        olSenase = FXCollections.observableArrayList();
         lbNaslov = new Label("Pregled odrzabih seansi");
-        btnIzaberi = new Button("Izaberi");
-        twSeanse.setMinWidth(400);
+        btnBack = new Button("Back");
+
         twSeanse = new TableView<>(olSenase);
-        vb = new VBox();
-        vb.setPadding(new Insets(15,10,15,10));
-        vb.setAlignment(Pos.CENTER);
-        vb.setSpacing(10);
-        hb = new HBox();
-        hb.setAlignment(Pos.CENTER);
-        hb.setPadding(new Insets(15,10,15,10));
-        hb.setSpacing(10);
-        vb2 = new VBox();
-        vb2.setPadding(new Insets(15,10,15,10));
-        vb2.setAlignment(Pos.CENTER);
-        vb2.setSpacing(10);
-        cbPsihoterapeuti = new ComboBox<>();
-        //TODO dodati iteme u comboBox i zavrsiti tabelu
-    /*
-        TableColumn<**, String> col1 = new TableColumn<>("nazivkolone");
-        TableColumn<** , String> col2 = new TableColumn<>("nazivkolone");
-        TableColumn<**, String> col3 = new TableColumn<>("nazivkolone");
+        twSeanse.setMinWidth(500);
 
-        col1.setCellValueFactory(new PropertyValueFactory<>("id"));
-        col2.setCellValueFactory(new PropertyValueFactory<>("kontinent"));
-        col3.setCellValueFactory(new PropertyValueFactory<>("drzava"));
 
-        twNoviKlijenti.getColumns().addAll(col1, col2, col3);
+        TableColumn<SeansaPrikaz, Integer> colId = new TableColumn<>("ID Seanse");
+        colId.setCellValueFactory(new PropertyValueFactory<>("seansaId"));
 
-     */
+        TableColumn<SeansaPrikaz, LocalDate> colDatum = new TableColumn<>("Datum");
+        colDatum.setCellValueFactory(new PropertyValueFactory<>("datum"));
+
+        TableColumn<SeansaPrikaz, LocalTime> colVreme = new TableColumn<>("Vreme");
+        colVreme.setCellValueFactory(new PropertyValueFactory<>("vreme"));
+
+        TableColumn<SeansaPrikaz, Integer> colTrajanje = new TableColumn<>("Trajanje (min)");
+        colTrajanje.setCellValueFactory(new PropertyValueFactory<>("trajanje"));
+
+        TableColumn<SeansaPrikaz, String> colIme = new TableColumn<>("Ime klijenta");
+        colIme.setCellValueFactory(new PropertyValueFactory<>("imeKlijenta"));
+
+        TableColumn<SeansaPrikaz, String> colPrezime = new TableColumn<>("Prezime klijenta");
+        colPrezime.setCellValueFactory(new PropertyValueFactory<>("prezimeKlijenta"));
+
+        TableColumn<SeansaPrikaz, String> colBeleske = new TableColumn<>("Beleske");
+        colBeleske.setCellValueFactory(new PropertyValueFactory<>("beleska"));
+
+        TableColumn<SeansaPrikaz, String> colBrSeanse = new TableColumn<>("Broj seanse");
+        colBrSeanse.setCellValueFactory(new PropertyValueFactory<>("broj"));
+
+        twSeanse.getColumns().addAll(colId, colDatum, colVreme, colTrajanje, colIme, colPrezime, colBeleske, colBrSeanse);
+
     }
 
     private void dodajElemente()
     {
-        vb2.getChildren().addAll(lbIzborPsihoterapeuta, cbPsihoterapeuti);
-        hb.getChildren().addAll(vb2, btnIzaberi);
-        vb.getChildren().addAll(hb, twSeanse);
+        this.setMinWidth(650);
+        this.setMinHeight(500);
         this.setAlignment(Pos.CENTER);
         this.setPadding(new Insets(15,10,15,10));
         this.setSpacing(15);
-        this.getChildren().addAll(lbNaslov, vb);
+        this.getChildren().addAll(lbNaslov, twSeanse,btnBack);
     }
 
     private void dodajAkcije()
     {
+        btnBack.setOnAction(e -> {
+            Scene scene = new Scene(new IzborPregleda(jmbg));
+            App.stage.setScene(scene);
+        });
 
     }
+    private void ucitajSeanse() {
+        ObservableList<SeansaPrikaz> lista = FXCollections.observableArrayList();
+
+        String upit = "SELECT s.seansa_id, s.datum_seanse, s.vreme_seanse, " +
+                "s.trajanje_u_minutima, s.br_seanse, s.beleska, " +
+                "k.ime AS imeKlijenta, k.prezime AS prezimeKlijenta " +
+                "FROM Seansa s " +
+                "JOIN Klijent k ON s.Klijent_klijent_jmbg = k.klijent_jmbg " +
+                "WHERE s.Kandidat_jmbg = ? AND s.datum_seanse < CURRENT_DATE";
+
+        try (Connection conn = DatabaseConnector.connect();
+             PreparedStatement stmt = conn.prepareStatement(upit)) {
+
+            stmt.setString(1, this.jmbg); // jmbg ulogovanog kandidata
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                SeansaPrikaz sp = new SeansaPrikaz();
+                sp.setSeansaId(rs.getInt("seansa_id"));
+                sp.setDatum(rs.getDate("datum_seanse").toLocalDate());
+                sp.setVreme(rs.getTime("vreme_seanse").toLocalTime());
+                sp.setTrajanje(rs.getInt("trajanje_u_minutima"));
+                sp.setBroj(rs.getInt("br_seanse"));
+                sp.setBeleska(rs.getString("beleska"));
+
+                sp.setImeKlijenta(rs.getString("imeKlijenta"));
+                sp.setPrezimeKlijenta(rs.getString("prezimeKlijenta"));
+
+                lista.add(sp);
+            }
+
+            twSeanse.setItems(lista);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 
 }
